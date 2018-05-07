@@ -1,0 +1,757 @@
+---
+title: "Youtube Comment Analysis of Two United States Missile Strikes Againt Syria in 2018 and in 2014"
+author: "Hongyi He"
+date: "2018/4/16"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+![Missile Strike against Syria](https://media1.s-nbcnews.com/j/newscms/2018_15/2399236/180414-syria-research-center-damage-ew-406p_3a7031a366613f4943f5e02e758adb03.focal-1000x500.jpg){width=60%}
+
+https://hongyihebu.shinyapps.io/Final_HongyiHe/
+
+```{r,message=F,echo=F,warning=F}
+library(tidytext)
+library(tidyverse)
+library(scales)
+library(tm)
+library(wordcloud)
+library(ggthemes)
+library(ggplot2)
+library(reshape2)
+library(knitr) # for dynamic reporting
+# install.packages("kableExtra")
+library(kableExtra) # create a nicely formated HTML table
+# install.packages("formattable")
+library(formattable) # for the color_tile function
+library(lubridate)
+# install.packages("ggrepel")
+library(ggrepel) #`geom_label_repel`
+# install.packages("gridExtra")
+library(gridExtra) #`grid.arrange()` for multi-graphs
+# install.packages("circlize")
+library(circlize) #Visualizations - chord diagram
+# install.packages("memery")
+library(memery) #Memes - images with plots
+# install.packages("magick")
+library(magick) #Memes - images with plots (image_read)
+# install.packages("yarrr")
+library(yarrr)  #Pirate plot
+# install.packages("radarchart")
+library(radarchart) #Visualizations
+# install.packages("igraph")
+library(igraph) #ngram network diagrams
+# install.packages("ggraph")
+library(ggraph) #ngram network diagrams
+
+my_colors <- c("#E69F00", "#56B4E9", "#009E73", "#CC79A7", "#D55E00")
+
+theme_lyrics <- function(aticks = element_blank(),
+                         pgminor = element_blank(),
+                         lt = element_blank(),
+                         lp = "none")
+{
+  theme(plot.title = element_text(hjust = 0.5), #Center the title
+        axis.ticks = aticks, #Set axis ticks to on or off
+        panel.grid.minor = pgminor, #Turn the minor grid lines on or off
+        legend.title = lt, #Turn the legend title on or off
+        legend.position = lp) #Turn the legend on or off
+}
+
+my_kable_styling <- function(dat, caption) {
+  kable(dat, "html", escape = FALSE, caption = caption) %>%
+  kable_styling(bootstrap_options = c("striped", "condensed", "bordered"),
+                full_width = FALSE)
+}
+
+token <- read.csv("token.csv") %>% as.tibble()
+token$date <- as.Date(token$date)
+
+comment <- read.csv("comment.csv") %>% as.tibble()
+comment$date <- strptime(comment$date, format="%Y-%m-%d %H:%M:%S")
+
+count_2018 <- token %>% 
+  filter(year == 2018) %>% 
+  count(word, sort = TRUE) 
+
+count_2014 <- token %>% 
+  filter(year == 2014) %>% 
+  filter(word != "00a0") %>% 
+  count(word, sort = TRUE) 
+
+count_2014_1 <- token %>% 
+  filter(year == 2014) %>% 
+  filter(date < "2016-12-12") %>% 
+  filter(word != "00a0") %>% 
+  count(word, sort = TRUE) 
+```
+
+### **1. Background**
+
+On 14 April 2018, 04:00 Syrian time, the United States, France, and the United Kingdom carried out a series of military strikes involving aircraft and ship-based missiles against multiple government sites in Syria. It was in response to the Douma chemical attack against civilians on 7 April, which they attributed to the Syrian government. On 23 September 2014, American jets began bombing ISIS targets in Syria, raising U.S. involvement in the war-torn country and sending a forceful message to the terror group. This project studies the youtube comments on the above events, trying to find the difference in people's reaction on US missile strike over time.
+
+
+### **2. Word Analysis**
+
+This project crawl all the Youtube video with comments more than 500 on US Missile Strike against Syria in 2014 and 2018. A word Cloud analysis and a word frequency analysis are done to show a rough picture of the study.   
+
+
+##### **2.1. Word Cloud**
+
+
+```{r,message=F,echo=F,warning=F}
+set.seed(1)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 6))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "YouTube Comments on 2014 US Missile Strike")
+wordcloud(main = "2014 yt comments",words = count_2014$word, freq = count_2014$n, min.freq = 50, 
+          random.color = TRUE, random.order=FALSE,
+          max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+
+```
+
+The above wordclouds is made of youtube comments on missile strike in 2014. It is wired to see the word "trump" appear in 2014 wordcloud. That is because people can still comments on the youtube video in recent years. To eliminate the bias caused by recent comments, this project limit the comments in 2014-2016. The wordcloud is shown below: 
+
+```{r,message=F,echo=F,warning=F}
+set.seed(1)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 6))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "YouTube Comments on 2014 US Missile Strike (2014-2016)")
+wordcloud(main = "2014 yt comments",words = count_2014_1$word, freq = count_2014_1$n, min.freq = 50, 
+          random.color = TRUE, random.order=FALSE,
+          max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+```
+
+
+As we can see in the wordclouds above, "isis" and "america" have the most frequent occurrences, which is natural because the purpose of missile strike against syrian in 2014 is to attack the ISIS. People also says f words a lot in the comments to express their feeling. However, the size of president's name and word "russia" were relatively small, indicating their low frequence occurences in the youtube comments.
+
+
+```{r,message=F,echo=F,warning=F}
+set.seed(1)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 6))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "YouTube Comments on 2018 US Missile Strike")
+wordcloud(words = count_2018$word, freq = count_2018$n, min.freq = 50, 
+          random.color = TRUE, random.order=FALSE,
+          max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+```
+
+
+When we turn our attention to YouTube Comments on 2018 US Missile Strike, things are different. In the wordcloud above, it is shown that people mentioned "trump" and "russia" a lot in their comments. Such a high frequency of the President name was not shown in the comments in 2014, which implies a different attitude of youtuber on Trump and Obama. In the comments, Russia is also mentioned relatively more in 2018 than in 2014, comparing the realtive size of the word. This can be explained by people's anticipation of the Russian reaction on US missile strike. Since there is a potential confrontation between Russia and United States in Syria.
+
+
+##### **2.2. Word Frequency**
+
+
+To further explore the youtube comment, this project makes word frequency chart as below:
+
+
+```{r,message=F,echo=F,warning=F}
+token %>%
+  filter(year == 2014) %>% 
+  filter(date < "2017-1-1") %>%
+  filter(word != "00a0") %>% 
+  count(word, sort = TRUE) %>%
+  filter(n > 100) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col(fill = my_colors[3]) +
+  theme(legend.position = "none", 
+          plot.title = element_text(hjust = 0.5),
+          panel.grid.major = element_blank()) +
+  xlab(NULL) +
+  ylim(0,2000)+
+  ggtitle("YouTube Comments on 2014 US Missile Strike (2014-2016)")+
+  coord_flip()
+```
+
+
+As shown in the YouTube Comments on 2014 US Missile Strike word frequency chart above, we can see that people mentions the word "isis" most, with "america" rank the second and f word rank the third. People seems not willing to relate the president with the missile strike in 2014, they care more about the ISIS and the war itself. However, things are different in 2018 as shown below:
+
+
+```{r,message=F,echo=F,warning=F}
+token %>%
+  filter(year == 2018) %>%  
+  count(word, sort = TRUE) %>%
+  filter(n > 200) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col(fill = my_colors[4]) +
+  theme(legend.position = "none", 
+          plot.title = element_text(hjust = 0.5),
+          panel.grid.major = element_blank()) +
+  xlab(NULL) +
+  ylim(0,2000)+
+  ggtitle("YouTube Comments on 2018 US Missile Strike")+
+  coord_flip()
+```
+
+
+After normalizing the x-axis, we can see that the number of comments on 2018 US missile strike is much greater than the number of comments on 2014 US missile strike, which can either be explained by the popularity of computer and Internet or the increase in people's enthusiasm for political events. In 2018's comments, word "russia" has the highest frequency, which is really weird because the missile strike has nothing to do with Russia directly. 
+
+
+The word "trump" ranks the second, which implies that people in comments tend to relate the president with the missile strike, which is understandable.
+
+
+### **3. Further Explore of Word Frequency**
+
+However, our rough analysis has some drawbacks:
+
+* 1. The number of comments on US Missile Strike against Syria in 2014 is much less than the number of comments on US Missile Strike against Syria in 2018 due to the popularity of computers and Internet over time. 
+* 2. The Youtube comments in 2014 is collected from 2014 to now, while the Youtube comments in 2018 is collected from april 11th to now. The sample we collect has different time period, which may cause bias. 
+* 3. The LikeCount is highly correlated with the time that comments come out. For example, some interesting comments may have low like count due to its late. 
+
+To solve those problem, this project chooses comments from 20 days after the release of the video, divide them into 5 periods (1, 2, 3, 4, 5), each period have 4 days. 
+
+The likeCount number is divided into 4 categories:
+
+* 1. very popular : likeCount > 200
+* 2. popular : likeCount > 50
+* 3. good : likeCount > 1
+* 4. normal : likeCount = 0
+
+```{r,message=F,echo=F,warning=F}
+comment_new <- read.csv("comment_new.csv",stringsAsFactors = FALSE)
+comment_new %>%
+  filter(year==2014) %>% 
+  group_by(time, popularity) %>%
+  summarise(number_of_comment = n()) %>%
+  ggplot() + 
+  geom_bar(aes(x = time, y = number_of_comment, 
+               fill = popularity), stat = "identity")  +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        panel.grid.minor = element_blank()) +
+  ggtitle("Comments in 2014 (9/23-10/13)") +
+  labs(x = "Time Period", y = "Comment Count") +
+  ylim(0,1200)
+```
+
+
+This clearly shows the most active time periods was the first 4 days after videos come out in 2014. The majority of good comments appears from period 2 to 4. There seems to be a lag in the creation of golden sentence.
+
+
+```{r,message=F,echo=F,warning=F}
+comment_new %>%
+  filter(year==2018) %>% 
+  group_by(time, popularity) %>%
+  summarise(number_of_comment = n()) %>%
+  ggplot() + 
+  geom_bar(aes(x = time, y = number_of_comment, 
+               fill = popularity), stat = "identity")  +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        panel.grid.minor = element_blank()) +
+  ggtitle("Comments in 2018 (4/11-5/1)") +
+  labs(x = "Time Period", y = "Comment Count") +
+  ylim(0,1200)
+```
+
+In 2018, things are different. The most attractive comments are created in the first two periods. Besides that, videos on missile strike in 2018 receive more likes than in 2014, while the number of comments decrease in 2018. That can be explained by the progress in the ability to make attractive reviews of youtuber over time.
+
+##### **3.1 Top Liked Comments**
+
+Although we know how word frequency with likecount change over time, we dont know what the word with most likecounts exactly is. 
+
+```{r,message=F,echo=F}
+comment_new %>%
+  filter(likeCount > 400) %>%
+  select(year, Text = textOriginal, likeCount) %>%
+  arrange(year) %>%
+  mutate(year = color_tile("lightblue", "lightgreen")(year)) %>%
+  mutate(likeCount = color_tile("lightgreen", "lightgreen")(likeCount)) %>%
+  kable("html", escape = FALSE, align = "c", caption = "Comments with Top likeCount") %>%
+  kable_styling(bootstrap_options = 
+                  c("striped", "condensed", "bordered"), 
+                  full_width = FALSE)
+```
+
+Here, we can see that the comments with more than 400 likecounts in 2018 is much shorter than the comments with more than 400 likecounts in 2014. There is a huge difference in the attitude expressed by the high liked comments: people tend to express their disgust on ISIS and somewhat support the missile strike towards the ISIS in Syrian in 2014; In 2018, comments suggest suspicion of the US government and president. People don't believe what government tell them about the missile strike and care about how russia would react.
+
+##### **3.2 Top Liked Word Frequency**
+
+Here, this project break the top likeCount word up by popularity level. Since top likeCount words represent what most people likes, it can somewhat show the preference of commenters and readers. 
+
+```{r,message=F,echo=F,warning = F}
+token_new <- read.csv("token_new.csv", stringsAsFactors = FALSE)
+
+popular_words_2014 <- token_new %>%
+  filter(date < "2018-1-1") %>% 
+  group_by(popularity) %>%
+  count(word, popularity, sort = TRUE) %>%
+  slice(seq_len(8)) %>%
+  ungroup() %>%
+  arrange(popularity,n) %>%
+  mutate(row = row_number())
+
+popular_words_2014 %>%
+  ggplot(aes(row, n, fill = popularity)) +
+    geom_col(show.legend = NULL) +
+    labs(x = NULL, y = "Comment Count") +
+    ggtitle("Popular Words by likeCount in 2014") +
+    facet_wrap(~popularity, scales = "free") +
+    scale_x_continuous(  # This handles replacement of row
+      breaks = popular_words_2014$row, # notice need to reuse data frame
+      labels = popular_words_2014$word) +
+    coord_flip()
+```
+
+
+Here, this project breaks the top words up by popularity level. In 2014, the top words across the likeCount levels are similar. We can see word "people", "isis", "america" appear in each group. This doesn't look good for our aims of explaining whether a comments will be liked based on the word it use. 
+
+
+```{r,message=F,echo=F,warning = F}
+popular_words_2018 <- token_new %>%
+  filter(year == 2018) %>% 
+  group_by(popularity) %>%
+  count(word, popularity, sort = TRUE) %>%
+  slice(seq_len(8)) %>%
+  ungroup() %>%
+  arrange(popularity,n) %>%
+  mutate(row = row_number())
+
+popular_words_2018 %>%
+  ggplot(aes(row, n, fill = popularity)) +
+    geom_col(show.legend = NULL) +
+     labs(x = NULL, y = "Comment Count") +
+     ggtitle("Popular Words by likeCount in 2018") +
+     facet_wrap(~popularity, scales = "free") + 
+     scale_x_continuous(  # This handles replacement of row
+       breaks = popular_words_2018$row, # notice need to reuse data frame
+       labels = popular_words_2018$word) + 
+     coord_flip()
+```
+
+In 2018, the top words across the likeCount levels also show similarity. The only difference is that word "trump" doesn't show up in the comments with more than 200 likeCount. It seems like that people don't want to like the comments with "trump" in it.
+
+##### **3.3 Relationship between period and LikeCount**
+
+The following graph shows the relationship between the period a comment was published and whether or not it becomes popular in terms of its likeCounts.
+
+```{r,message=F,echo=F}
+comment_new_t <- comment_new %>%
+  mutate(pop = 
+           ifelse(comment_new$likeCount > 200, "vp", 
+                  ifelse(comment_new$likeCount > 50, "p",
+                         ifelse(comment_new$likeCount > 1, "good","normal"))))
+
+time_chart <- comment_new_t %>% 
+  filter(year == 2014) %>% 
+  count(time, pop)  #Get SONG count per chart level per decade. Order determines top or bottom.
+
+
+
+circos.clear() #Very important - Reset the circular layout parameters!
+grid.col = c("period 1" = my_colors[1], "period 2" = my_colors[2], "period 3" = my_colors[3], "period 4" = my_colors[4], "period 5" = my_colors[5], "popular" = "grey", "good" = "grey") #assign chord colors
+# Set the global parameters for the circular layout. Specifically the gap size
+circos.par(gap.after = c(rep(5, length(unique(time_chart[[1]])) - 1), 15,
+                         rep(5, length(unique(time_chart[[2]])) - 1), 15))
+
+chordDiagram(time_chart, grid.col = grid.col, transparency = .2)
+title("Relationship Between LikeCount and Time in 2014")
+```
+
+The above circle graph may seem complicated at the first glance, but it nicely illustrates the likecounts of comments per time period, per popularity level. Here, p is the abbreviation of the "popular" and vp is for "very popular". You can see that p and vp comments are so scarce in 2014 that it's hard for us to track it back to the exact time period. It's not hard to see that most good comments come out in the first and second period. The amount of comments is smoothly decreasing over time.
+
+```{r,message=F,echo=F}
+comment_new_t <- comment_new %>%
+  mutate(pop = 
+           ifelse(comment_new$likeCount > 200, "vp", 
+                  ifelse(comment_new$likeCount > 50, "p",
+                         ifelse(comment_new$likeCount > 1, "good","normal"))))
+
+time_chart_1 <- comment_new_t %>% 
+  filter(year == 2018) %>% 
+  count(time, pop)  #Get SONG count per chart level per decade. Order determines top or bottom.
+
+
+
+circos.clear() #Very important - Reset the circular layout parameters!
+grid.col = c("period 1" = my_colors[1], "period 2" = my_colors[2], "period 3" = my_colors[3], "period 4" = my_colors[4], "period 5" = my_colors[5], "popular" = "grey", "good" = "grey") #assign chord colors
+# Set the global parameters for the circular layout. Specifically the gap size
+circos.par(gap.after = c(rep(5, length(unique(time_chart_1[[1]])) - 1), 15,
+                         rep(5, length(unique(time_chart_1[[2]])) - 1), 15))
+
+chordDiagram(time_chart_1, grid.col = grid.col, transparency = .2)
+title("Relationship Between LikeCount and Time in 2018")
+```
+
+You can see that p and vp comments come mostly from the first and second time period. Good comments are mainly composed of comments in the first period. The amount of comments abruptly decrease from 3rd period, indicating a faster attention transfer of people on Internet, compared to the case in 2014.
+
+##### **3.4 Word Length**
+
+We are also interested in the word length distribution of comments on missile strike in 2014 and 2018. Since comments with more words always contain more information, which might attract more likes. On the other hand, in the age of Internet, people tend to read shorter comments with refined content. Shorter comments might attract more likes as well. To figure this out, we presents the word length distribution of comments which popularity is better than good, divided by year.
+
+```{r,message=F,echo=F}
+comment_word_lengths_14_50 <- comment_new %>%
+  filter(year == 2014) %>% 
+  filter(popularity %in% c("popular","very popular")) %>% 
+  unnest_tokens(word,textOriginal) %>%
+  group_by(X,date) %>%
+  distinct() %>%
+  mutate(word_length = nchar(word)) 
+
+comment_word_lengths_14_50 %>%
+  count(word_length, sort = TRUE) %>%
+  ggplot(aes(word_length), 
+         binwidth = 10) + 
+    geom_histogram(aes(fill = ..count..),
+                   breaks = seq(1,25, by = 2), 
+                   show.legend = FALSE) + 
+    xlab("Word Length") + 
+    ylab("Word Count") +
+    ggtitle("Word Length Distribution of Comments in 2014 (likeCount >50)") +
+    theme(plot.title = element_text(hjust = 0.5),
+          panel.grid.minor = element_blank())
+```
+
+In 2014, from the chart above, high likeCount comments on missile strike tend to have a word length of 6, with no comment has more than 13 words. The distribution of word length shows a flat shape.
+
+
+```{r,message=F,echo=F}
+comment_word_lengths_18_50 <- comment_new %>%
+  filter(year == 2018) %>% 
+  filter(popularity %in% c("popular","very popular")) %>% 
+  unnest_tokens(word,textOriginal) %>%
+  group_by(X,date) %>%
+  distinct() %>%
+  mutate(word_length = nchar(word)) 
+
+comment_word_lengths_18_50 %>%
+  count(word_length, sort = TRUE) %>%
+  ggplot(aes(word_length), 
+         binwidth = 10) + 
+    geom_histogram(aes(fill = ..count..),
+                   breaks = seq(1,25, by = 2), 
+                   show.legend = FALSE) + 
+    xlab("Word Length") + 
+    ylab("Word Count") +
+    ggtitle("Word Length Distribution of Comments in 2018 (likeCount >50)") +
+    theme(plot.title = element_text(hjust = 0.5),
+          panel.grid.minor = element_blank())
+```
+
+In 2018, from the chart above, high likeCount comments on missile strike tend to have a word length less 5. 2018 youtube comments on missile strike seems to have more high likecount comments with word length more than 12, compared with 2014 youtube comments.The distribution of word length shows a steep shape. 
+
+##### **3.5 Lexical Diversity**
+
+The more varied a vocabulary a text possesses, the higher its lexical diversity. Here, we want to explore the lexical diversity of youtube comments on missile strike over time.
+
+```{r,message=F,echo=F,warning=F}
+lex_diversity_14 <- comment_new %>%
+  filter(year == 2014) %>% 
+  unnest_tokens(word,textOriginal) %>%
+  group_by(X,time) %>%
+  summarise(lex_diversity = n_distinct(word)) %>%
+  arrange(desc(lex_diversity)) 
+
+lex_diversity_14$time <- as.numeric(lex_diversity_14$time)
+
+diversity_plot_0 <- lex_diversity_14 %>%
+  ggplot(aes(time, lex_diversity)) +
+    geom_point(color = my_colors[3],
+               alpha = .4, 
+               size = 4, 
+               position = "jitter") + 
+    geom_smooth(aes(x = time, y = lex_diversity), se = FALSE,
+                color = "blue", lwd = 0.5, method = "loess") +
+    ggtitle("Lexical Diversity of Comments in 2014") +
+    xlab("Days after the Release of Video") + 
+    ylab("Number of the Unique Word") +
+    scale_color_manual(values = my_colors) +
+    theme_classic()
+
+diversity_plot_0
+```
+
+In youtube comments on US missile strike against syrian in 2014, there is no big change in the lexical diversity, only a little increase from 1nd period to 3rd period after the release of the video and then decline from 3rd period to 5th period.
+
+```{r,message=F,echo=F,warning = F}
+lex_diversity_18 <- comment_new %>%
+  filter(year == 2018) %>% 
+  unnest_tokens(word,textOriginal) %>%
+  group_by(X,time) %>%
+  summarise(lex_diversity = n_distinct(word)) %>%
+  arrange(desc(lex_diversity)) 
+
+lex_diversity_18$time <- as.numeric(lex_diversity_18$time)
+
+diversity_plot_1 <- lex_diversity_18 %>%
+  ggplot(aes(time, lex_diversity)) +
+    geom_point(color = my_colors[3],
+               alpha = .4, 
+               size = 4, 
+               position = "jitter") + 
+    geom_smooth(aes(x = time, y = lex_diversity), se = FALSE,
+                color = "blue", lwd = 0.5, method = "loess") +
+    ggtitle("Lexical Diversity") +
+    xlab("Days after the Release of Video") + 
+    ylab("Number of the Unique Word") +
+    scale_color_manual(values = my_colors) +
+    theme_classic()
+
+diversity_plot_1
+```
+
+In youtube comments on US missile strike against syrian in 2018, there is a slight increase in the lexical diversity in the 4th period (about 20 days after the release of video).
+
+
+### **4. Sentiment Analysis**
+
+Sentiment analysis is a type of text mining which aims to determine the opinion and subjectivity of its content. When applied to comments, the results can be representative of not only the youtuber's attitudes, but can also reveal pervasive, cultural tendencies.
+
+
+##### **4.1. Sentiment Word Clouds** 
+
+```{r,message=F,echo=F,warning = F}
+#sentiment word clouds
+set.seed(1)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 6))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "YouTube Comments on 2014 US Missile Strike")
+
+token_new %>%
+  filter(year==2014) %>% 
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("red", "green"),
+                   max.words = 100)
+
+```
+
+```{r,message=F,echo=F,warning = F}
+#sentiment word clouds
+set.seed(1)
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 6))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "YouTube Comments on 2018 US Missile Strike")
+
+token_new %>%
+  filter(year==2018) %>% 
+  filter(word != "trump") %>% 
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("red", "green"),
+                   max.words = 100)
+
+```
+
+In the sentiment word clouds above, word in red represents negative and green indicates positive. There seems no big difference in the postive word used in comments between 2014 and 2018, most are words like "peace", "support", "love". The negative words seems different in 2014 and 2018. In 2014, word "kill", "fuck" has high frequency. In 2018, "attack", "fake", "propaganda" appear with high frequency, implying that people cares more about authenticity of news in 2018.
+
+##### **4.3. Polar Sentiment Analysis** 
+
+Here, we look at sentiment from a polar perspective. We want to see wether or not it changes over time. Here, blue line represents the overall regression trend of bing sentiment, pink line is the smooth line that represents every periods' change. 
+
+```{r,message=F,echo=F,warning = F}
+token_bing <- token_new %>%
+  filter(year == 2014) %>% 
+  inner_join(get_sentiments("bing"))
+
+token_bing$date <- as.Date("2014-10-13")-as.Date(token_bing$date)
+
+polarity_year <- token_bing %>%
+  count(sentiment, date) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(polarity = positive - negative,
+    percent_positive = positive / (positive + negative) * 100)
+
+polarity_over_time <- polarity_year %>%
+  ggplot(aes(date, polarity, color = ifelse(polarity >= 0,my_colors[5],my_colors[4]))) +
+  geom_col() +
+  geom_smooth(method = "loess", se = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = my_colors[1])) +
+  theme_lyrics() + theme(plot.title = element_text(size = 11)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Polarity Over Time in 2014")
+
+polarity_over_time
+```
+
+In comments of 2014 on Missile Strike, we can see that the overall polarity trend over time is negative, and decrease abruptly 17 days after the release of the youtube video. That is easy to explain since people tend to express negative comments on the war.
+
+```{r,message=F,echo=F,warning = F}
+token_bing_1 <- token_new %>%
+  filter(year == 2018) %>% 
+  inner_join(get_sentiments("bing"))
+
+token_bing_1$date <- as.Date("2018-5-1")-as.Date(token_bing_1$date)
+
+polarity_year_1 <- token_bing_1 %>%
+  count(sentiment, date) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(polarity = positive - negative,
+    percent_positive = positive / (positive + negative) * 100)
+
+polarity_over_time_1 <- polarity_year_1 %>%
+  ggplot(aes(date, polarity, color = ifelse(polarity >= 0,my_colors[5],my_colors[4]))) +
+  geom_col() +
+  geom_smooth(method = "loess", se = FALSE) +
+  geom_smooth(method = "lm", se = FALSE, aes(color = my_colors[1])) +
+  theme_lyrics() + theme(plot.title = element_text(size = 11)) +
+  xlab(NULL) + ylab(NULL) +
+  ggtitle("Polarity Over Time in 2018")
+
+polarity_over_time_1
+```
+
+In comments of 2018 on Missile Strike, we can also see that the overall polarity trend over time is negative. But the trend of ploarity is different between 2014 and 2018. A sudden drop appears at 15 days after the release of video, grab the overall trend down.
+
+##### **4.2. Mood Ring** 
+
+Here, We use again the power of the chordDiagram() to examine the relationships between NRC sentiments and times, which gives us a rough idea of the change in mood over time. Sentiment categories appear on the top part of the ring and time period on the bottom.
+
+```{r,message=F,echo=F,warning = F}
+grid.col = c("1" = my_colors[1], "2" = my_colors[2], "3" = my_colors[3], "4" = my_colors[4], "5" = my_colors[5], "anger" = "grey", "anticipation" = "grey", "disgust" = "grey", "fear" = "grey", "joy" = "grey", "sadness" = "grey", "surprise" = "grey", "trust" = "grey")
+
+token_nrc <- token_new %>%
+  filter(year == 2014) %>% 
+  inner_join(get_sentiments("nrc"))
+
+decade_mood <-  token_nrc %>%
+  filter(!sentiment %in% c("positive", "negative")) %>%
+  count(sentiment, time) %>%
+  group_by(time, sentiment) %>%
+  summarise(sentiment_sum = sum(n)) %>%
+  ungroup()
+
+circos.clear()
+#Set the gap size
+circos.par(gap.after = c(rep(5, length(unique(decade_mood[[1]])) - 1), 15,
+                         rep(5, length(unique(decade_mood[[2]])) - 1), 15))
+chordDiagram(decade_mood, grid.col = grid.col, transparency = .2)
+title("Relationship Between Mood and Time Period in 2014")
+```
+
+As we can see in the mood ring in 2014, the mjaority of the sentiment in comments on missile strike is fear, anger and trust for all periods. 
+
+```{r,message=F,echo=F,warning = F}
+
+token_nrc_1 <- token_new %>%
+  filter(year == 2018) %>% 
+  inner_join(get_sentiments("nrc"))
+
+decade_mood_1 <-  token_nrc_1 %>%
+  filter(!sentiment %in% c("positive", "negative")) %>%
+  count(sentiment, time) %>%
+  group_by(time, sentiment) %>%
+  summarise(sentiment_sum = sum(n)) %>%
+  ungroup()
+
+circos.clear()
+#Set the gap size
+circos.par(gap.after = c(rep(5, length(unique(decade_mood_1[[1]])) - 1), 15,
+                         rep(5, length(unique(decade_mood_1[[2]])) - 1), 15))
+chordDiagram(decade_mood_1, grid.col = grid.col, transparency = .2)
+title("Relationship Between Mood and Time Period in 2018")
+```
+
+As we can see in the mood ring in 2018, the mjaority of the sentiment in comments on missile strike is fear and trust for first two periods. Since the comments of 3rd, 4th and 5th period is too scarce, we can't tell too much about those periods.
+
+##### **4.4. Nrc analysis**
+
+By showing the emotion change over time, we have more detailed information on the change of people's attitude. 
+
+```{r,message=F,echo=F,warning = F}
+token_sentiment <- token_new %>%
+  mutate(linenumber = row_number()) %>% 
+  inner_join(get_sentiments("bing")) %>%
+  count(year, index = linenumber %/% 80, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment = positive - negative)
+
+ggplot(token_sentiment, aes(index, sentiment, fill = year)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~year, ncol = 2, scales = "free_x")
+```
+
+In the graph above, the left part is the sentiment change in comment of 2014 missile strike, the right part is the sentiment change in comment of 2018 missile strike. We can see that most comments is negative in both year. However, there is more postive comments come out in 2018 than 2014. Comments in 2014 also show deeper negative than 2018. 
+
+##### **4.5. Radar Nrc Analysis** 
+
+Another great way to compare sentiment across categories is to use a radar chart, which is also known as a spider chart. Here, we divide the comments by their popularity, which is shown by the number of likeCount. 
+
+* 1. very popular : likeCount > 200
+* 2. popular : likeCount > 50
+* 3. good : likeCount > 1
+* 4. normal : likeCount = 0
+
+```{r,message=F,echo=F}
+year_sentiment_nrc <- token_nrc %>%
+  filter(!sentiment %in% c("positive", "negative")) %>% 
+  group_by(popularity, sentiment) %>%
+  count(popularity, sentiment) %>%
+  select(popularity, sentiment, sentiment_year_count = n)
+
+#Get the total count of sentiment words per year (not distinct)
+total_sentiment_year <- token_nrc %>%
+  filter(!sentiment %in% c("positive", "negative")) %>% 
+  count(popularity) %>%
+  select(popularity, year_total = n)
+
+#Join the two and create a percent field
+year_radar_chart <- year_sentiment_nrc %>%
+  inner_join(total_sentiment_year, by = "popularity") %>%
+  mutate(percent = sentiment_year_count / year_total * 100 ) %>% 
+  select(-sentiment_year_count, -year_total) %>%
+  spread(popularity, percent) %>%
+  chartJSRadar(showToolTipLabel = TRUE,
+               main = "NRC Popularity Radar in 2014")
+
+year_radar_chart
+```
+
+In the radar chart for 2014 comments above, we can see that popular comments tend to have much more trust words. Very popular words also have more trust word than the normal and good comments, which tend to express more fear and sadness. This can be explained by what we saw in *3.1 Top Liked Comments*, where the top liked comment in 2014 is a autobiography by a muslim who expresses peace and trust to let youtuber understand not all muslim is ISIS members. 
+
+
+```{r,message=F,echo=F}
+year_sentiment_nrc_1 <- token_nrc_1 %>%
+  filter(!sentiment %in% c("positive", "negative")) %>% 
+  group_by(popularity, sentiment) %>%
+  count(popularity, sentiment) %>%
+  select(popularity, sentiment, sentiment_year_count = n)
+
+#Get the total count of sentiment words per year (not distinct)
+total_sentiment_year_1 <- token_nrc_1 %>%
+  filter(!sentiment %in% c("positive", "negative")) %>% 
+  count(popularity) %>%
+  select(popularity, year_total = n)
+
+#Join the two and create a percent field
+year_radar_chart_1 <- year_sentiment_nrc_1 %>%
+  inner_join(total_sentiment_year_1, by = "popularity") %>%
+  mutate(percent = sentiment_year_count / year_total * 100 ) %>% 
+  select(-sentiment_year_count, -year_total) %>%
+  spread(popularity, percent) %>%
+  chartJSRadar(showToolTipLabel = TRUE,
+               main = "NRC Popularity Radar in 2018")
+
+year_radar_chart_1
+```
+
+In the radar chart for 2018 comments above, we can see that very popular comments tend to have more fear and anger words, with less suprise and trust, which is totally different from what we see in 2014.
+
+### **5. Conclusion**
+
+From the analysis above, we have the following conclusions:
+
+* 1. The amount of comments in 2018 is much greater than in 2014.
+* 2. People tend to mention "trump" more instead of the war itself in 2018.
+* 3. Comments with more likeCounts tend to appear in the first 7-10 days after the release of the video.
+* 4. 2018 comments seems to have more high likecount comments with word length more than 12, while the 2014 comments tend to have a word length of 6.
+* 5. There is no big change in Lexical Diversity in both year.
+* 6. The overall sentiment of comments is negative and decrease over time in both year.
+* 7. In 2014 comments, popular comments tend to have much more trust words.
+* 8. In 2018 comments, popular comments tend to have much more fear and anger words.
